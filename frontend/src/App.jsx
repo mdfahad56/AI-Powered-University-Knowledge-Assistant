@@ -47,7 +47,7 @@ const buildFreshConversation = () => ({
   input: '',
 })
 
-const API_BASE_URL = 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 const cutoffData = [
   { year: '2021', branch: 'CSE', score: '89.5%', seats: '620' },
@@ -62,76 +62,7 @@ const cutoffData = [
   { year: '2025', branch: 'ECE', score: '88.2%', seats: '500' },
 ]
 
-const questionPaperCategories = [
-  {
-    slug: 'b-pharm',
-    label: 'B.Pharm',
-    officialUrl: 'https://www.abesit.in/library/question-paper-bank/',
-    semesters: [
-      {
-        label: '1st Sem.',
-        years: {
-          '2017-18': [
-            'HUMAN-ANATOMY-PHYSIOLOGY-BP-101T.pdf',
-            'PHARMACEUTICAL-ANALYSIS-1-BP-102T.pdf',
-            'PHARMACEUTICAL-INORGANIC-CHEMISTRY-BP-104T.pdf',
-            'PHARMACEUTICS-1-BP-103T.pdf',
-          ],
-          '2018-19': [
-            'HUMAN-ANATOMY-PHYSIOLOGY-BP-101T.pdf',
-            'PHARMACEUTICAL-ANALYSIS-1-BP-102T.pdf',
-          ],
-        },
-      },
-      {
-        label: '2nd Sem.',
-        years: {
-          '2017-18': [
-            'PHARMACEUTICAL-ORGANIC-CHEMISTRY-1-BP-201T.pdf',
-            'BIOCHEMISTRY-BP-202T.pdf',
-          ],
-          '2018-19': ['PHARMACEUTICAL-ORGANIC-CHEMISTRY-1-BP-201T.pdf'],
-        },
-      },
-    ],
-  },
-  {
-    slug: 'b-tech',
-    label: 'B.Tech',
-    officialUrl: 'https://www.abesit.in/library/question-paper-bank/',
-    semesters: [
-      { label: '1st Sem.', years: { '2017-18': ['Engineering-Mathematics-1.pdf'], '2018-19': ['Engineering-Mathematics-1.pdf'] } },
-      { label: '2nd Sem.', years: { '2017-18': ['Engineering-Mathematics-2.pdf'], '2018-19': ['Engineering-Mathematics-2.pdf'] } },
-    ],
-  },
-  {
-    slug: 'bba',
-    label: 'BBA',
-    officialUrl: 'https://www.abesit.in/library/question-paper-bank/',
-    semesters: [
-      { label: '1st Sem.', years: { '2017-18': ['Business-Organisation.pdf'], '2018-19': ['Business-Organisation.pdf'] } },
-      { label: '2nd Sem.', years: { '2017-18': ['Business-Communication.pdf'], '2018-19': ['Business-Communication.pdf'] } },
-    ],
-  },
-  {
-    slug: 'bca',
-    label: 'BCA',
-    officialUrl: 'https://www.abesit.in/library/question-paper-bank/',
-    semesters: [
-      { label: '1st Sem.', years: { '2017-18': ['Computer-Fundamentals.pdf'], '2018-19': ['Computer-Fundamentals.pdf'] } },
-      { label: '2nd Sem.', years: { '2017-18': ['Digital-Logic.pdf'], '2018-19': ['Digital-Logic.pdf'] } },
-    ],
-  },
-  {
-    slug: 'mca',
-    label: 'MCA',
-    officialUrl: 'https://www.abesit.in/library/question-paper-bank/',
-    semesters: [
-      { label: '1st Sem.', years: { '2017-18': ['Programming-in-C.pdf'], '2018-19': ['Programming-in-C.pdf'] } },
-      { label: '2nd Sem.', years: { '2017-18': ['Data-Structures.pdf'], '2018-19': ['Data-Structures.pdf'] } },
-    ],
-  },
-]
+const questionPaperCategories = []
 
 function Navbar({ isDark, onToggleTheme, onAskAI }) {
   return (
@@ -657,6 +588,451 @@ function CutoffSection() {
   )
 }
 
+function ResourceUploadPanel() {
+  const [selectedFile, setSelectedFile] = useState(null)
+  const [resources, setResources] = useState([])
+  const [status, setStatus] = useState('')
+  const [statusType, setStatusType] = useState('info')
+  const [isUploading, setIsUploading] = useState(false)
+  const [selectedResource, setSelectedResource] = useState(null)
+  const [filters, setFilters] = useState({
+    degree: 'All',
+    course: 'All',
+    semester: 'All',
+    year: 'All',
+  })
+  const [formData, setFormData] = useState({
+    type: 'question_paper',
+    degree: 'BTech',
+    course: 'DBMS',
+    semester: '6',
+    branch: 'CSE',
+    year: '2025',
+    exam_type: 'End Semester',
+  })
+
+  const loadResources = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/resources`)
+      if (!response.ok) {
+        throw new Error('Failed to load indexed resources')
+      }
+      const data = await response.json()
+      setResources(Array.isArray(data.items) ? data.items : [])
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  useEffect(() => {
+    loadResources()
+  }, [])
+
+  const handleFieldChange = (event) => {
+    const { name, value } = event.target
+    setFormData((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleFileSelection = (event) => {
+    const file = event.target.files?.[0] || null
+
+    if (!file) {
+      setSelectedFile(null)
+      return
+    }
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    if (!isPdf) {
+      event.target.value = ''
+      setSelectedFile(null)
+      setStatus('Please select a valid PDF file only.')
+      setStatusType('error')
+      return
+    }
+
+    setSelectedFile(file)
+    setStatus('')
+    setStatusType('info')
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+
+    if (!selectedFile) {
+      setStatus('Please choose a PDF file to upload.')
+      setStatusType('error')
+      return
+    }
+
+    const payload = new FormData()
+    payload.append('file', selectedFile)
+    payload.append('type', formData.type)
+    payload.append('degree', formData.degree.trim() || 'General')
+    payload.append('course', formData.course.trim() || 'General')
+    payload.append('subject', formData.course.trim() || 'General')
+    payload.append('semester', formData.semester)
+    payload.append('branch', formData.branch)
+    payload.append('year', String(formData.year))
+    payload.append('exam_type', formData.exam_type)
+
+    setIsUploading(true)
+    setStatus('Uploading...')
+    setStatusType('info')
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/resources/upload`, {
+        method: 'POST',
+        body: payload,
+      })
+
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || 'Upload failed. Please try again.')
+      }
+
+      setStatus('✓ Question paper uploaded successfully')
+      setStatusType('success')
+      setSelectedFile(null)
+      const uploadInput = document.getElementById('resource-pdf-input')
+      if (uploadInput) {
+        uploadInput.value = ''
+      }
+      await loadResources()
+    } catch (error) {
+      console.error(error)
+      setStatus(error.message || 'The upload failed. Please check the PDF and metadata and try again.')
+      setStatusType('error')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const uniqueValues = (key) => {
+    const values = resources
+      .map((resource) => resource.metadata?.[key])
+      .filter(Boolean)
+
+    return [...new Set(values)].sort((left, right) => left.localeCompare(right, undefined, { numeric: true }))
+  }
+
+  const degreeOptions = [...new Set(['BTech', 'BCA', 'MCA', 'MBA', 'Other', ...uniqueValues('degree')])]
+  const courseOptions = [...new Set(resources
+    .filter((resource) => filters.degree === 'All' || (resource.metadata?.degree || resource.metadata?.program) === filters.degree)
+    .map((resource) => resource.metadata?.course || resource.metadata?.subject)
+    .filter(Boolean))]
+
+  const filteredResources = resources.filter((resource) => {
+    const metadata = resource.metadata || {}
+    const degreeMatch = filters.degree === 'All' || (metadata.degree || metadata.program) === filters.degree
+    const courseMatch = filters.course === 'All' || (metadata.course || metadata.subject) === filters.course
+    const semesterMatch = filters.semester === 'All' || metadata.semester === filters.semester
+    const yearMatch = filters.year === 'All' || (metadata.academic_year || metadata.year) === filters.year
+    return degreeMatch && courseMatch && semesterMatch && yearMatch
+  })
+
+  const handleViewResource = (resource) => {
+    if (!resource?.id) {
+      return
+    }
+
+    setSelectedResource(resource)
+  }
+
+  const handleDownload = (resource) => {
+    if (!resource?.id) {
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = `${API_BASE_URL}/api/resources/${resource.id}/file`
+    link.download = resource.filename || 'resource.pdf'
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleDelete = async (resource) => {
+    if (!resource?.id) {
+      return
+    }
+
+    const confirmed = window.confirm(`Delete ${resource.filename || 'this resource'}?`)
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/resources/${resource.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.detail || 'Unable to delete this resource.')
+      }
+
+      setStatus('✓ Resource deleted successfully')
+      setStatusType('success')
+      await loadResources()
+    } catch (error) {
+      console.error(error)
+      setStatus(error.message || 'Could not delete this resource.')
+      setStatusType('error')
+    }
+  }
+
+  const resourceTypeOptions = [
+    { value: 'question_paper', label: 'Question Paper' },
+    { value: 'notes', label: 'Notes' },
+    { value: 'syllabus', label: 'Syllabus' },
+    { value: 'other', label: 'Other' },
+  ]
+
+  const examTypeOptions = ['Mid Semester', 'End Semester', 'Internal', 'Other']
+  const semesterOptions = ['1', '2', '3', '4', '5', '6', '7', '8']
+  const branchOptions = ['CSE', 'ECE', 'ME', 'EE', 'IT', 'Civil', 'MBA', 'Other']
+  const resourceYearOptions = [...new Set(resources
+    .map((resource) => resource.metadata?.academic_year || resource.metadata?.year)
+    .filter(Boolean))].sort((left, right) => right.localeCompare(left, undefined, { numeric: true }))
+
+  return (
+    <section className="paper-board detail-panel resource-library-panel" aria-label="Upload and manage question paper resources">
+      <div className="page-header-row detail-header-row">
+        <div>
+          <h2 className="page-title">Resource Library</h2>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="card-panel resource-upload-card">
+        <div className="resource-form-grid">
+          <label className="resource-field">
+            <span>Resource Type</span>
+            <select name="type" value={formData.type} onChange={handleFieldChange}>
+              {resourceTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="resource-field">
+            <span>Degree / Program</span>
+            <input
+              type="text"
+              name="degree"
+              value={formData.degree}
+              onChange={handleFieldChange}
+              list="degree-options"
+              placeholder="BTech, BCA, MBA..."
+            />
+            <datalist id="degree-options">
+              {degreeOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+          </label>
+
+          <label className="resource-field">
+            <span>Course / Subject</span>
+            <input
+              type="text"
+              name="course"
+              value={formData.course}
+              onChange={handleFieldChange}
+              list="course-options"
+              placeholder="DBMS, Data Structures..."
+            />
+            <datalist id="course-options">
+              {[...new Set(resources
+                .filter((resource) => !formData.degree || (resource.metadata?.degree || resource.metadata?.program) === formData.degree)
+                .map((resource) => resource.metadata?.course || resource.metadata?.subject)
+                .filter(Boolean))].map((option) => (
+                  <option key={option} value={option} />
+              ))}
+            </datalist>
+          </label>
+
+          <label className="resource-field">
+            <span>Semester</span>
+            <select name="semester" value={formData.semester} onChange={handleFieldChange}>
+              {semesterOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="resource-field">
+            <span>Branch</span>
+            <select name="branch" value={formData.branch} onChange={handleFieldChange}>
+              {branchOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="resource-field">
+            <span>Academic Year</span>
+            <input
+              type="number"
+              name="year"
+              min="2000"
+              max="2100"
+              value={formData.year}
+              onChange={handleFieldChange}
+            />
+          </label>
+
+          <label className="resource-field">
+            <span>Exam Type</span>
+            <select name="exam_type" value={formData.exam_type} onChange={handleFieldChange}>
+              {examTypeOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="file-row">
+          <label className="resource-file-picker">
+            <span className="file-label">PDF File</span>
+            <input
+              id="resource-pdf-input"
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={handleFileSelection}
+            />
+            <span className="file-name">{selectedFile ? selectedFile.name : 'No file chosen'}</span>
+          </label>
+
+          <button type="submit" className="primary-btn small-btn upload-btn" disabled={isUploading}>
+            {isUploading ? 'Uploading...' : 'Upload PDF'}
+          </button>
+        </div>
+
+        {status && (
+          <p className={`upload-status ${statusType === 'error' ? 'error' : statusType === 'success' ? 'success' : ''}`}>
+            {status}
+          </p>
+        )}
+      </form>
+
+      <div className="resource-list-panel">
+        <div className="resource-filters">
+          <div className="resource-filter-grid">
+            <label className="resource-filter-field">
+              <span>Degree / Program</span>
+              <select value={filters.degree} onChange={(event) => setFilters((current) => ({ ...current, degree: event.target.value, course: 'All' }))}>
+                <option value="All">All</option>
+                {degreeOptions.map((degree) => (
+                  <option key={degree} value={degree}>{degree}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="resource-filter-field">
+              <span>Course / Subject</span>
+              <select value={filters.course} onChange={(event) => setFilters((current) => ({ ...current, course: event.target.value }))}>
+                <option value="All">All</option>
+                {courseOptions.map((course) => (
+                  <option key={course} value={course}>{course}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="resource-filter-field">
+              <span>Semester</span>
+              <select value={filters.semester} onChange={(event) => setFilters((current) => ({ ...current, semester: event.target.value }))}>
+                <option value="All">All</option>
+                {uniqueValues('semester').map((semester) => (
+                  <option key={semester} value={semester}>{semester}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="resource-filter-field">
+              <span>Year</span>
+              <select value={filters.year} onChange={(event) => setFilters((current) => ({ ...current, year: event.target.value }))}>
+                <option value="All">All</option>
+                {resourceYearOptions.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="resource-header-row">
+          <h3>Question Papers</h3>
+        </div>
+
+        {filteredResources.length === 0 ? (
+          <div className="empty-resource-state">No question papers match the current filters.</div>
+        ) : (
+          <div className="uploaded-resource-list">
+            {filteredResources.map((resource) => {
+              const metadata = resource.metadata || {}
+              const degree = metadata.degree || metadata.program || 'General'
+              const course = metadata.course || metadata.subject || 'Unknown'
+              const semester = metadata.semester || 'N/A'
+              const examType = metadata.exam_type || 'Exam'
+              const academicYear = metadata.academic_year || metadata.year || 'N/A'
+
+              return (
+                <article key={resource.id || resource.filename} className="uploaded-resource-item">
+                  <div className="resource-summary">
+                    <h4>{degree} / {course} — {examType} {academicYear}</h4>
+                    <p>Semester {semester}</p>
+                  </div>
+
+                  <div className="resource-actions">
+                    <button type="button" className="secondary-btn" onClick={() => handleViewResource(resource)}>
+                      View PDF
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => handleDownload(resource)}>
+                      Download
+                    </button>
+                    <button type="button" className="secondary-btn" onClick={() => handleDelete(resource)}>
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {selectedResource && (
+        <div className="resource-preview-backdrop" onClick={() => setSelectedResource(null)}>
+          <div className="resource-preview-card" onClick={(event) => event.stopPropagation()}>
+            <div className="resource-preview-header">
+              <div>
+                <p className="eyebrow subtle">Question paper preview</p>
+                <h4>{selectedResource.filename}</h4>
+              </div>
+              <button type="button" className="ghost-btn" onClick={() => setSelectedResource(null)}>Close</button>
+            </div>
+
+            <div className="resource-preview-meta">
+              <span>{selectedResource.metadata?.degree || selectedResource.metadata?.program || 'General'}</span>
+              <span>{selectedResource.metadata?.course || selectedResource.metadata?.subject || 'Unknown course'}</span>
+              <span>Semester {selectedResource.metadata?.semester || 'N/A'}</span>
+              <span>{selectedResource.metadata?.academic_year || selectedResource.metadata?.year || 'N/A'}</span>
+            </div>
+
+            <iframe
+              className="resource-pdf-viewer"
+              src={`${API_BASE_URL}/api/resources/${selectedResource.id}/file`}
+              title={selectedResource.filename || 'Resource preview'}
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function QuestionPaperPage({ isDark, setIsDark }) {
   const navigate = useNavigate()
 
@@ -684,6 +1060,7 @@ function QuestionPaperPage({ isDark, setIsDark }) {
         </div>
 
         <CutoffSection />
+        <ResourceUploadPanel />
 
         <section className="paper-board" aria-label="Question paper categories">
           <div className="paper-grid">
