@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
 
-from app.database import build_database_url
+from app.database import build_database_url, get_db, reset_test_storage_if_needed
 from app.main import app
+from app.models import QuestionPaperResource
 
 client = TestClient(app)
 
@@ -25,6 +26,14 @@ def test_knowledge_areas():
 
 
 def test_upload_question_paper_and_list_it():
+    reset_test_storage_if_needed()
+    db = next(get_db())
+    try:
+        db.query(QuestionPaperResource).delete()
+        db.commit()
+    finally:
+        db.close()
+
     pdf_bytes = b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length 73 >>\nstream\nBT\n/F1 18 Tf\n50 50 Td\n(DBMS sample question) Tj\nET\nendstream\nendobj\n5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n'
 
     response = client.post(
@@ -51,6 +60,13 @@ def test_upload_question_paper_and_list_it():
 
 
 def test_upload_keeps_original_pdf_separate_from_metadata():
+    db = next(get_db())
+    try:
+        db.query(QuestionPaperResource).filter(QuestionPaperResource.filename.like('cyber%')).delete()
+        db.commit()
+    finally:
+        db.close()
+
     pdf_bytes = b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n'
 
     response = client.post(
@@ -92,3 +108,46 @@ def test_chat_endpoint():
     assert 'answer' in payload
     assert 'sources' in payload
     assert len(payload['suggested_questions']) > 0
+
+
+def test_support_submission_and_db_persistence():
+    payload = {
+        "first_name": "Priya",
+        "last_name": "Verma",
+        "country": "India",
+        "phone": "+91 9876543210",
+        "email": "priya.verma@aktu.ac.in",
+        "inquiry_type": "Technical Support",
+        "message": "I am unable to download the question paper for Semester 5.",
+        "newsletter": True,
+    }
+    response = client.post("/api/support", json=payload)
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["status"] == "success"
+    assert "submitted successfully" in data["message"].lower()
+    assert data["data"]["first_name"] == "Priya"
+    assert data["data"]["country"] == "India"
+    assert data["data"]["newsletter"] is True
+    assert data["data"]["status"] == "pending"
+
+    listing = client.get("/api/support")
+    assert listing.status_code == 200
+    items = listing.json()["items"]
+    assert any(i["email"] == "priya.verma@aktu.ac.in" and i["country"] == "India" for i in items)
+
+
+def test_support_validation_errors():
+    invalid_payload = {
+        "first_name": "Test",
+        "last_name": "User",
+        "country": "India",
+        "phone": "123",
+        "email": "not-an-email",
+        "inquiry_type": "General",
+        "message": "",
+        "newsletter": False,
+    }
+    response = client.post("/api/support", json=invalid_payload)
+    assert response.status_code == 422
+

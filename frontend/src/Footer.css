@@ -1,0 +1,407 @@
+/* =========================================
+   FULL WIDTH FOOTER
+========================================= */
+
+.site-footer-wrapper {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.site-footer-container {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+
+  background: #081827;
+
+  border-top: 1px solid rgba(56, 189, 248, 0.10);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.08);
+
+  border-radius: 0;
+
+  padding: 3rem 34px 1.5rem;
+
+  color: #f1f5f9;
+
+  box-shadow: none;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================
+   FOOTER CONTENT
+========================================= */
+
+.footer-main-grid {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+
+  gap: 3rem;
+
+  align-items: start;
+}
+
+
+/* =========================================
+   NAVIGATION
+========================================= */
+
+.footer-col-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-nav-list {
+  list-style: none;
+
+  margin: 0;
+  padding: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 0.9rem;
+}
+
+.footer-nav-link,
+.footer-modal-trigger {
+  font-size: 0.82rem;
+  font-weight: 500;
+
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+
+  color: #d6e2ee;
+
+  text-decoration: none;
+
+  background: none;
+  border: none;
+
+  padding: 0;
+
+  cursor: pointer;
+
+  text-align: left;
+
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.footer-nav-link:hover,
+.footer-modal-trigger:hover,
+.footer-nav-link:focus-visible,
+.footer-modal-trigger:focus-visible {
+  color: #38bdf8;
+  transform: translateX(3px);
+  outline: none;
+}
+
+
+/* =========================================
+   NEWSLETTER
+========================================= */
+
+.footer-col-newsletter {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-newsletter-title {
+  font-size: 1.35rem;
+  font-weight: 650;
+
+  letter-spacing: -0.01em;
+
+  color: #f8fafc;
+
+  margin: 0 0 0.4rem;
+}
+
+.footer-newsletter-subtitle {
+  font-size: 0.85rem;
+
+  color: #8fa8be;
+
+  line-height: 1.5;
+
+  margin: 0 0 1.1rem;
+}
+
+
+/* =========================================
+   NEWSLETTER FORM
+========================================= */
+
+.footer-newsletter-form {
+  display: flex;
+  flex-direction: column;
+
+  gap: 0.5rem;
+
+  margin-bottom: 1.25rem;
+}
+
+.footer-input-row {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 0.5rem;
+
+  background: #102235;
+
+  border: 1px solid rgba(148, 163, 184, 0.16);
+
+  border-radius: 10px;
+
+  padding: 0.3rem 0.4rem 0.3rem 0.85rem;
+
+  box-sizing: border-box;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.footer-input-row:focus-within {
+  border-color: #38bdf8;
+
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.10);
+
+  background: #142a3f;
+}
+
+.footer-email-input {
+  flex: 1;
+
+  min-width: 0;
+
+  background: transparent;
+
+  border: none;
+  outline: none;
+
+  color: #ffffff;
+
+  font-size: 0.85rem;
+
+  padding: 0.45rem 0;
+}
+
+.footer-email-input::placeholder {
+  color: #71869b;
+}
+
+
+/* =========================================
+   SUBSCRIBE BUTTON
+========================================= */
+
+.footer-subscribe-btn {
+  background: #38bdf8;
+
+  color: #061522;
+
+  border: none;
+
+  border-radius: 8px;
+
+  padding: 0.55rem 0.95rem;
+
+  font-size: 0.8rem;
+
+  font-weight: 650;
+
+  cursor: pointer;
+
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 0.4rem;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+
+  flex-shrink: 0;
+}
+
+.footer-subscribe-btn:hover:not(:disabled) {
+  background: #60cdf5;
+
+  box-shadow:
+    0 4px 14px rgba(56, 189, 248, 0.20);
+
+  transform: translateY(-1px);
+}
+
+.footer-subscribe-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* =========================================
+   SOCIAL ICONS
+========================================= */
+
+.footer-social-group {
+  display: flex;
+
+  align-items: center;
+
+  gap: 0.65rem;
+
+  margin-top: 0.15rem;
+}
+
+.footer-social-tile {
+  width: 34px;
+  height: 34px;
+
+  border-radius: 8px;
+
+  background: #12283c;
+
+  color: #dbeafe;
+
+  border: 1px solid rgba(148, 163, 184, 0.18);
+
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  text-decoration: none;
+
+  box-shadow: none;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.footer-social-tile:hover {
+  background: #193c58;
+
+  border-color: rgba(56, 189, 248, 0.4);
+
+  color: #38bdf8;
+
+  transform: translateY(-2px);
+}
+
+.footer-social-svg {
+  width: 20px;
+  height: 20px;
+}
+
+
+/* =========================================
+   DIVIDER
+========================================= */
+
+.footer-divider {
+  width: 100%;
+  height: 1px;
+
+  border: 0;
+
+  background: rgba(148, 163, 184, 0.12);
+
+  margin: 2.25rem 0 1.25rem;
+}
+
+
+/* =========================================
+   COPYRIGHT
+========================================= */
+
+.footer-bottom {
+  text-align: center;
+}
+
+.footer-copyright {
+  font-size: 0.7rem;
+
+  font-weight: 500;
+
+  letter-spacing: 0.06em;
+
+  text-transform: uppercase;
+
+  color: #71869b;
+
+  margin: 0;
+}
+
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 900px) {
+
+  .site-footer-container {
+    padding: 2.75rem 28px 1.75rem;
+  }
+
+  .footer-main-grid {
+    grid-template-columns: 1fr 1fr;
+
+    gap: 2rem;
+  }
+
+  .footer-col-newsletter {
+    grid-column: span 2;
+  }
+}
+
+
+@media (max-width: 640px) {
+
+  .site-footer-container {
+    padding: 2.25rem 20px 1.5rem;
+  }
+
+  .footer-main-grid {
+    grid-template-columns: 1fr;
+
+    gap: 1.75rem;
+  }
+
+  .footer-col-newsletter {
+    grid-column: span 1;
+  }
+
+  .footer-input-row {
+    flex-direction: row;
+
+    padding: 0.3rem 0.4rem 0.3rem 0.75rem;
+  }
+
+  .footer-subscribe-btn {
+    width: auto;
+  }
+
+  .footer-divider {
+    margin: 1.75rem 0 1.25rem;
+  }
+}

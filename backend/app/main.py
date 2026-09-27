@@ -16,15 +16,17 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from transformers import pipeline
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / "backend" / ".env")
 
 from .database import get_db, init_db
-from .models import QuestionPaperResource
+from .models import QuestionPaperResource, SupportRequest, User
+from .auth_routes import router as auth_router
 
 try:
     from pypdf import PdfReader
@@ -49,6 +51,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
 
 KNOWLEDGE_AREAS = [
     "Academic policies",
@@ -111,6 +115,28 @@ class AIChatService:
         except Exception:
             self._pipe = None
 
+    def generate(self, question: str) -> str:
+        if self._pipe is None:
+            self._load_model()
+        if self._pipe is None:
+            return build_fallback_answer(question)
+
+        try:
+            result = self._pipe(
+                question,
+                max_new_tokens=220,
+                do_sample=True,
+                temperature=0.2,
+                truncation=True,
+            )
+            if not result:
+                return build_fallback_answer(question)
+            generated = result[0].get("generated_text", "")
+            cleaned = str(generated).strip()
+            return cleaned or build_fallback_answer(question)
+        except Exception:
+            return build_fallback_answer(question)
+
 
 class EmbeddingService:
     def __init__(self) -> None:
@@ -165,7 +191,6 @@ def normalize_storage_segment(value: Any, fallback: str = "General") -> str:
 def get_storage_root() -> str:
     if "PYTEST_CURRENT_TEST" in os.environ:
         storage_root = os.path.join(tempfile.gettempdir(), "university_assistant_test_storage")
-        shutil.rmtree(storage_root, ignore_errors=True)
         os.makedirs(storage_root, exist_ok=True)
         return storage_root
     return os.path.join(os.path.dirname(__file__), "storage")
@@ -182,15 +207,23 @@ def build_question_paper_directory(degree: str, course: str, semester: str, acad
     return directory
 
 
-def find_unique_pdf_path(directory: str, filename: str) -> str:
+def find_unique_pdf_path(directory: str, filename: str, db: Session | None = None, storage_root: str | None = None) -> str:
     safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", filename or "resource.pdf")
     base_name, extension = os.path.splitext(safe_name)
     candidate = safe_name
     counter = 1
-    while os.path.exists(os.path.join(directory, candidate)):
+    while True:
+        candidate_path = os.path.join(directory, candidate)
+        file_exists = os.path.exists(candidate_path)
+        db_exists = False
+        if db is not None and storage_root is not None:
+            rel = os.path.relpath(candidate_path, storage_root).replace('\\', '/')
+            db_exists = db.query(QuestionPaperResource).filter(QuestionPaperResource.file_path == rel).first() is not None
+        if not file_exists and not db_exists:
+            return candidate_path
         candidate = f"{base_name}_{counter}{extension}"
         counter += 1
-    return os.path.join(directory, candidate)
+
 
 
 def normalize_resource_metadata(filename: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
@@ -666,7 +699,7 @@ def upload_resource(
 
     storage_root = get_storage_root()
     target_directory = build_question_paper_directory(degree_name, course_name, str(semester_value), str(academic_year))
-    final_file_path = find_unique_pdf_path(target_directory, file.filename)
+    final_file_path = find_unique_pdf_path(target_directory, file.filename, db=db, storage_root=storage_root)
     final_filename = os.path.basename(final_file_path)
     relative_storage_path = os.path.relpath(final_file_path, storage_root).replace('\\', '/')
 
@@ -724,7 +757,16 @@ def get_resource_file(resource_id: str, db: Session = Depends(get_db)):
 
     file_path = os.path.join(get_storage_root(), resource.file_path)
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Resource file not found.")
+        candidates = [
+            os.path.join(os.path.dirname(__file__), "storage", resource.file_path),
+            os.path.join(get_storage_root(), "resources", resource.file_path),
+            os.path.join(os.path.dirname(__file__), "storage", "resources", resource.file_path),
+        ]
+        found = next((p for p in candidates if os.path.exists(p)), None)
+        if found:
+            file_path = found
+        else:
+            raise HTTPException(status_code=404, detail="Resource file not found.")
 
     return FileResponse(
         path=file_path,
@@ -761,3 +803,93 @@ def search_resources(query: str) -> dict[str, Any]:
 
     hits = app.state.resource_store.search(query, top_k=5)
     return {"items": hits}
+
+
+class SupportInquiryRequest(BaseModel):
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    country: str = Field(..., min_length=1, max_length=100)
+    phone: str = Field(..., min_length=5, max_length=50)
+    email: str = Field(..., min_length=5, max_length=255)
+    inquiry_type: str = Field(..., min_length=1, max_length=100)
+    message: str = Field(..., min_length=5, max_length=4000)
+    newsletter: bool = False
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+        v_clean = v.strip()
+        if not re.match(pattern, v_clean):
+            raise ValueError("Invalid email format.")
+        return v_clean
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        clean = re.sub(r"[\s\-\(\)\+]", "", v)
+        if not clean.isdigit() or len(clean) < 7:
+            raise ValueError("Invalid phone number. Must contain at least 7 digits.")
+        return v.strip()
+
+
+@app.post("/api/support")
+def submit_support_inquiry(request: SupportInquiryRequest, db: Session = Depends(get_db)) -> dict[str, Any]:
+    new_inquiry = SupportRequest(
+        first_name=request.first_name.strip(),
+        last_name=request.last_name.strip(),
+        country=request.country.strip(),
+        phone=request.phone.strip(),
+        email=request.email.strip().lower(),
+        inquiry_type=request.inquiry_type.strip(),
+        message=request.message.strip(),
+        newsletter=request.newsletter,
+        status="pending",
+    )
+    db.add(new_inquiry)
+    db.commit()
+    db.refresh(new_inquiry)
+
+    return {
+        "status": "success",
+        "success": True,
+        "message": "Thank you! Your request has been submitted successfully. Our support team will get back to you soon.",
+        "request_id": new_inquiry.id,
+        "data": {
+            "id": new_inquiry.id,
+            "first_name": new_inquiry.first_name,
+            "last_name": new_inquiry.last_name,
+            "country": new_inquiry.country,
+            "phone": new_inquiry.phone,
+            "email": new_inquiry.email,
+            "inquiry_type": new_inquiry.inquiry_type,
+            "message": new_inquiry.message,
+            "newsletter": bool(new_inquiry.newsletter),
+            "status": new_inquiry.status,
+            "created_at": new_inquiry.created_at.isoformat() if new_inquiry.created_at else None,
+        },
+    }
+
+
+@app.get("/api/support")
+def list_support_inquiries(db: Session = Depends(get_db)) -> dict[str, Any]:
+    inquiries = db.query(SupportRequest).order_by(SupportRequest.created_at.desc()).all()
+    return {
+        "items": [
+            {
+                "id": item.id,
+                "first_name": item.first_name,
+                "last_name": item.last_name,
+                "country": item.country,
+                "phone": item.phone,
+                "email": item.email,
+                "inquiry_type": item.inquiry_type,
+                "message": item.message,
+                "newsletter": item.newsletter,
+                "status": item.status,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+            }
+            for item in inquiries
+        ]
+    }
+

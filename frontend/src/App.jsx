@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import './App.css'
+import './Auth.css'
+import SupportPage from './SupportPage'
+import Footer from './Footer'
+import AuthPage from './AuthPage'
+import { AuthProvider, useAuth } from './AuthContext'
 
 const quickStats = [
   { label: 'AKTU colleges', value: '800+' },
@@ -65,6 +70,18 @@ const cutoffData = [
 const questionPaperCategories = []
 
 function Navbar({ isDark, onToggleTheme, onAskAI }) {
+  const navigate = useNavigate()
+  const { user, isAuthenticated, logout } = useAuth()
+
+  const handleAuthAction = () => {
+    if (isAuthenticated) {
+      logout()
+      navigate('/login')
+    } else {
+      navigate('/login')
+    }
+  }
+
   return (
     <header className={`topbar ${isDark ? 'theme-dark' : 'theme-light'}`}>
       <div className="brand-wrap">
@@ -79,13 +96,23 @@ function Navbar({ isDark, onToggleTheme, onAskAI }) {
         <Link to="/">Overview</Link>
         <Link to="/ai">AI Chat</Link>
         <Link to="/resources">Resources</Link>
-        <Link to="/">Support</Link>
+        <Link to="/support">Support</Link>
       </nav>
 
       <div className="navbar-actions">
         <button type="button" className="theme-toggle" onClick={onToggleTheme}>
           {isDark ? 'Light mode' : 'Dark mode'}
         </button>
+
+        {/* LOGIN / LOGOUT BUTTON */}
+        <button
+          type="button"
+          className="navbar-auth-btn nav-login-btn"
+          onClick={handleAuthAction}
+        >
+          {isAuthenticated ? (user?.first_name ? `${user.first_name} (Logout)` : 'Logout') : 'Login'}
+        </button>
+
         <button type="button" className="primary-btn" onClick={onAskAI}>
           Ask AI
         </button>
@@ -93,7 +120,6 @@ function Navbar({ isDark, onToggleTheme, onAskAI }) {
     </header>
   )
 }
-
 function DashboardPage({ isDark, setIsDark }) {
   const navigate = useNavigate()
   const [knowledgeAreas, setKnowledgeAreas] = useState([
@@ -381,6 +407,8 @@ function DashboardPage({ isDark, setIsDark }) {
           </aside>
         </section>
       </main>
+
+      <Footer />
     </div>
   )
 }
@@ -534,6 +562,8 @@ function AiPage({ isDark, setIsDark }) {
           </section>
         </div>
       </main>
+
+      <Footer />
     </div>
   )
 }
@@ -1070,6 +1100,8 @@ function QuestionPaperPage({ isDark, setIsDark }) {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   )
 }
@@ -1116,6 +1148,8 @@ function QuestionPaperSemesterPage({ isDark, setIsDark }) {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   )
 }
@@ -1166,6 +1200,8 @@ function QuestionPaperYearPage({ isDark, setIsDark }) {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   )
 }
@@ -1219,6 +1255,8 @@ function QuestionPaperPaperListPage({ isDark, setIsDark }) {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   )
 }
@@ -1227,14 +1265,20 @@ function App() {
   const [isDark, setIsDark] = useState(true)
 
   return (
-    <Routes>
-      <Route path="/" element={<DashboardPage isDark={isDark} setIsDark={setIsDark} />} />
-      <Route path="/ai" element={<AiPage isDark={isDark} setIsDark={setIsDark} />} />
-      <Route path="/resources" element={<QuestionPaperPage isDark={isDark} setIsDark={setIsDark} />} />
-      <Route path="/resources/:course" element={<QuestionPaperSemesterPage isDark={isDark} setIsDark={setIsDark} />} />
-      <Route path="/resources/:course/:semester" element={<QuestionPaperYearPage isDark={isDark} setIsDark={setIsDark} />} />
-      <Route path="/resources/:course/:semester/:year" element={<QuestionPaperPaperListPage isDark={isDark} setIsDark={setIsDark} />} />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<DashboardPage isDark={isDark} setIsDark={setIsDark} />} />
+        <Route path="/ai" element={<AiPage isDark={isDark} setIsDark={setIsDark} />} />
+        <Route path="/resources" element={<QuestionPaperPage isDark={isDark} setIsDark={setIsDark} />} />
+        <Route path="/resources/:course" element={<QuestionPaperSemesterPage isDark={isDark} setIsDark={setIsDark} />} />
+        <Route path="/resources/:course/:semester" element={<QuestionPaperYearPage isDark={isDark} setIsDark={setIsDark} />} />
+        <Route path="/resources/:course/:semester/:year" element={<QuestionPaperPaperListPage isDark={isDark} setIsDark={setIsDark} />} />
+        <Route path="/support" element={<SupportPage isDark={isDark} setIsDark={setIsDark} Navbar={Navbar} />} />
+        <Route path="/login" element={<AuthPage initialMode="login" isDark={isDark} setIsDark={setIsDark} Navbar={Navbar} />} />
+        <Route path="/signup" element={<AuthPage initialMode="signup" isDark={isDark} setIsDark={setIsDark} Navbar={Navbar} />} />
+        <Route path="/auth" element={<AuthPage initialMode="login" isDark={isDark} setIsDark={setIsDark} Navbar={Navbar} />} />
+      </Routes>
+    </AuthProvider>
   )
 }
 

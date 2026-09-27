@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import tempfile
 import warnings
 from pathlib import Path
 from typing import Generator
@@ -116,13 +117,14 @@ def reset_test_storage_if_needed() -> None:
         elif os.path.exists(item_path):
             os.remove(item_path)
 
-    test_storage_root = os.path.join(os.path.abspath(os.path.join(os.getcwd(), "..")), "test_storage")
+    test_storage_root = os.path.join(tempfile.gettempdir(), "university_assistant_test_storage")
     if os.path.exists(test_storage_root):
         shutil.rmtree(test_storage_root, ignore_errors=True)
+    os.makedirs(test_storage_root, exist_ok=True)
 
 
 def init_db() -> None:
-    from .models import QuestionPaperResource
+    from .models import QuestionPaperResource, SupportRequest
 
     reset_test_storage_if_needed()
     storage_dir = os.path.join(os.path.dirname(__file__), "storage")
